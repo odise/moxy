@@ -8,6 +8,7 @@
 package moxy
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -77,7 +78,8 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+// MoxyServeHTTP commment
+func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -123,7 +125,7 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Printf("http: proxy error: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 	defer res.Body.Close()
 
@@ -139,6 +141,30 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 	p.copyResponse(rw, res.Body)
+
+	return nil
+}
+
+// Handler commment
+func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := p.MoxyServeHTTP(w, r)
+
+	// If there was an error, do not continue.
+	if err != nil {
+		fmt.Printf("http: proxy error: %v", err)
+		return
+	}
+}
+
+// HandlerWithNext commment
+// Special implementation for Negroni, but could be used elsewhere.
+func (p *ReverseProxy) HandlerWithNext(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	err := p.MoxyServeHTTP(w, r)
+
+	// If there was an error, do not call next.
+	if err == nil && next != nil {
+		next(w, r)
+	}
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
