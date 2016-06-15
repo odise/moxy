@@ -54,7 +54,9 @@ type ReverseProxy struct {
 	// that occur when attempting to proxy the request.
 	// If nil, logging goes to os.Stderr via the log package's
 	// standard logger.
-	ErrorLog *log.Logger
+	ErrorLog      *log.Logger
+	Hostname      string
+	OverwriteHost bool
 }
 
 func copyHeader(dst, src http.Header) {
@@ -78,7 +80,7 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
-// MoxyServeHTTP commment
+// MoxyServeHTTP moxy ServeHTTP implementation
 func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
 	if transport == nil {
@@ -121,6 +123,16 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		outreq.Header.Set("X-Forwarded-For", clientIP)
 	}
 
+	// set Host header to point to the proxy target
+	if p.OverwriteHost {
+		host := outreq.URL.Host
+		if p.Hostname != "" {
+			host = p.Hostname
+		}
+		log.Printf("overwriting Host header %s with %s", outreq.Host, host)
+		outreq.Host = host
+	}
+
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
 		log.Printf("http: proxy error: %v", err)
@@ -145,7 +157,6 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	return nil
 }
 
-// Handler commment
 func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := p.MoxyServeHTTP(w, r)
 
@@ -156,8 +167,7 @@ func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandlerWithNext commment
-// Special implementation for Negroni, but could be used elsewhere.
+// HandlerWithNext Special implementation for Negroni, but could be used elsewhere.
 func (p *ReverseProxy) HandlerWithNext(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	err := p.MoxyServeHTTP(w, r)
 
