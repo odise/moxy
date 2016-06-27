@@ -8,6 +8,7 @@
 package moxy
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -53,7 +54,9 @@ type ReverseProxy struct {
 	// that occur when attempting to proxy the request.
 	// If nil, logging goes to os.Stderr via the log package's
 	// standard logger.
-	ErrorLog *log.Logger
+	ErrorLog      *log.Logger
+	Hostname      string
+	OverwriteHost bool
 }
 
 func copyHeader(dst, src http.Header) {
@@ -77,7 +80,8 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+// MoxyServeHTTP moxy ServeHTTP implementation
+func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
 	if transport == nil {
 		transport = http.DefaultTransport
@@ -119,11 +123,21 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header.Set("X-Forwarded-For", clientIP)
 	}
 
+	// set Host header to point to the proxy target
+	if p.OverwriteHost {
+		host := outreq.URL.Host
+		if p.Hostname != "" {
+			host = p.Hostname
+		}
+		log.Printf("httpproxy: overwriting Host header %s with %s", outreq.Host, host)
+		outreq.Host = host
+	}
+
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
-		log.Printf("http: proxy error: %v", err)
+		log.Printf("httpproxy: proxy error: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 	defer res.Body.Close()
 
@@ -139,6 +153,28 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 	p.copyResponse(rw, res.Body)
+
+	return nil
+}
+
+func (p *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := p.MoxyServeHTTP(w, r)
+
+	// If there was an error, do not continue.
+	if err != nil {
+		fmt.Printf("http: proxy error: %v", err)
+		return
+	}
+}
+
+// HandlerWithNext Special implementation for Negroni, but could be used elsewhere.
+func (p *ReverseProxy) HandlerWithNext(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	err := p.MoxyServeHTTP(w, r)
+
+	// If there was an error, do not call next.
+	if err == nil && next != nil {
+		next(w, r)
+	}
 }
 
 func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {

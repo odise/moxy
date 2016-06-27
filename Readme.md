@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/wunderlist/moxy.svg?branch=master)](https://travis-ci.org/wunderlist/moxy)
 
+***This is a slightly modified version adding [Negroni](https://github.com/urfave/negroni) support.***
+
 The stdlib `ReverseProxy` from `net/http/httputil` has 2 issues that this project solves
 
 1. There is single host proxy provided by `NewSingleHostReverseProxy`, but there is nothing to create a multi-host proxy
