@@ -35,9 +35,6 @@ func TestReverseProxy(t *testing.T) {
 		if r.Header.Get("X-Forwarded-For") == "" {
 			t.Errorf("didn't get X-Forwarded-For header")
 		}
-		if c := r.Header.Get("Connection"); c != "" {
-			t.Errorf("handler got Connection header value %q", c)
-		}
 		if c := r.Header.Get("Upgrade"); c != "" {
 			t.Errorf("handler got Upgrade header value %q", c)
 		}
@@ -60,7 +57,7 @@ func TestReverseProxy(t *testing.T) {
 	}
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters)
+	proxyHandler := NewReverseProxy(hosts, filters, false, "")
 	frontend := httptest.NewServer(proxyHandler)
 	defer frontend.Close()
 
@@ -118,7 +115,7 @@ func TestXForwardedFor(t *testing.T) {
 	}
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters)
+	proxyHandler := NewReverseProxy(hosts, filters, false, "")
 	frontend := httptest.NewServer(proxyHandler)
 	defer frontend.Close()
 
@@ -164,7 +161,7 @@ func TestReverseProxyQuery(t *testing.T) {
 		}
 		hosts := []string{backendURL.Host}
 		filters := []FilterFunc{}
-		proxyHandler := NewReverseProxy(hosts, filters)
+		proxyHandler := NewReverseProxy(hosts, filters, false, "")
 		frontend := httptest.NewServer(proxyHandler)
 		req, _ := http.NewRequest("GET", frontend.URL+tt.reqSuffix, nil)
 		req.Close = true
@@ -194,7 +191,7 @@ func TestReverseProxyFlushInterval(t *testing.T) {
 
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters)
+	proxyHandler := NewReverseProxy(hosts, filters, false, "")
 	proxyHandler.FlushInterval = time.Microsecond
 
 	done := make(chan bool)
