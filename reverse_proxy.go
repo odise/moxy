@@ -129,13 +129,13 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		if p.Hostname != "" {
 			host = p.Hostname
 		}
-		log.Printf("overwriting Host header %s with %s", outreq.Host, host)
+		log.Printf("httpproxy: overwriting Host header %s with %s", outreq.Host, host)
 		outreq.Host = host
 	}
 
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
-		log.Printf("http: proxy error: %v", err)
+		log.Printf("httpproxy: proxy error: %v", err)
 		rw.WriteHeader(http.StatusInternalServerError)
 		return err
 	}
