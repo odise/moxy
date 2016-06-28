@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ func TestReverseProxy(t *testing.T) {
 	const backendResponse = "I am the backend"
 	const backendStatus = 404
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		if len(r.TransferEncoding) > 0 {
 			t.Errorf("backend got unexpected TransferEncoding: %v", r.TransferEncoding)
 		}
@@ -37,9 +37,6 @@ func TestReverseProxy(t *testing.T) {
 		}
 		if c := r.Header.Get("Upgrade"); c != "" {
 			t.Errorf("handler got Upgrade header value %q", c)
-		}
-		if g, e := r.Host, "some-name"; g != e {
-			t.Errorf("backend got Host header %q, want %q", g, e)
 		}
 		w.Header().Set("X-Foo", "bar")
 		w.Header().Set("Upgrade", "foo")
@@ -51,11 +48,7 @@ func TestReverseProxy(t *testing.T) {
 		w.Write([]byte(backendResponse))
 	}))
 	defer backend.Close()
-	backendURL, err := url.Parse(backend.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hosts := []string{backendURL.Host}
+	hosts := []string{backend.URL}
 	filters := []FilterFunc{}
 	proxyHandler := NewReverseProxy(hosts, filters)
 	frontend := httptest.NewServer(proxyHandler)
@@ -109,11 +102,7 @@ func TestXForwardedFor(t *testing.T) {
 		w.Write([]byte(backendResponse))
 	}))
 	defer backend.Close()
-	backendURL, err := url.Parse(backend.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hosts := []string{backendURL.Host}
+	hosts := []string{backend.URL}
 	filters := []FilterFunc{}
 	proxyHandler := NewReverseProxy(hosts, filters)
 	frontend := httptest.NewServer(proxyHandler)
@@ -155,11 +144,7 @@ func TestReverseProxyQuery(t *testing.T) {
 	defer backend.Close()
 
 	for i, tt := range proxyQueryTests {
-		backendURL, err := url.Parse(backend.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-		hosts := []string{backendURL.Host}
+		hosts := []string{backend.URL}
 		filters := []FilterFunc{}
 		proxyHandler := NewReverseProxy(hosts, filters)
 		frontend := httptest.NewServer(proxyHandler)
@@ -184,12 +169,7 @@ func TestReverseProxyFlushInterval(t *testing.T) {
 	}))
 	defer backend.Close()
 
-	backendURL, err := url.Parse(backend.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	hosts := []string{backendURL.Host}
+	hosts := []string{backend.URL}
 	filters := []FilterFunc{}
 	proxyHandler := NewReverseProxy(hosts, filters)
 	proxyHandler.FlushInterval = time.Microsecond
