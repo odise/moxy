@@ -8,11 +8,15 @@
 package moxy
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +24,7 @@ import (
 
 // FilterFunc is a function that is called to process a proxy response
 // Since it has handle to the response object, it can manipulate the content
-type FilterFunc func(*http.Request, *http.Response)
+type FilterFunc func(*http.Request, *http.Response, string)
 
 // onExitFlushLoop is a callback set by tests to detect the state of the
 // flushLoop() goroutine.
@@ -80,6 +84,19 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
+func createRequestID(req *http.Request) string {
+
+	dump, err := httputil.DumpRequestOut(req, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	text := strconv.FormatInt(time.Now().UnixNano(), 10) + string(dump)
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
 // MoxyServeHTTP moxy ServeHTTP implementation
 func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) error {
 	transport := p.Transport
@@ -123,29 +140,21 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		outreq.Header.Set("X-Forwarded-For", clientIP)
 	}
 
-	// set Host header to point to the proxy target
+	reqID := createRequestID(req)
 
-	/*
-		if p.OverwriteHost {
-			host := outreq.URL.Host
-			if p.Hostname != "" {
-				host = p.Hostname
-			}
-			log.Printf("httpproxy: overwriting Host header %s with %s", outreq.Host, host)
-			log.Printf("httpproxy:  %s  %s", req.Host, outreq.Host)
-			//outreq.Host = host
-		}
-	*/
+	log.Printf("httpproxy: [%s] incomming request: %s %s%s %s; upstream %s://%s", reqID,
+		req.Method, req.Host, req.RequestURI, req.Header, outreq.URL.Scheme, outreq.Host)
+
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
-		log.Printf("httpproxy: proxy error: %v", err)
+		log.Printf("httpproxy: [%s] proxy error: %v", reqID, err)
 		rw.WriteHeader(http.StatusInternalServerError)
 		return err
 	}
 	defer res.Body.Close()
 
 	for _, filterFn := range p.Filters {
-		filterFn(req, res)
+		filterFn(req, res, reqID)
 	}
 
 	for _, h := range hopHeaders {
@@ -153,9 +162,13 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	}
 
 	copyHeader(rw.Header(), res.Header)
+	res.Header.Add("X-revprox-ID", reqID)
 
 	rw.WriteHeader(res.StatusCode)
 	p.copyResponse(rw, res.Body)
+
+	log.Printf("httpproxy: [%s] outgoing response: %d %s", reqID, res.StatusCode,
+		res.Header)
 
 	return nil
 }

@@ -20,8 +20,6 @@ func NewReverseProxy(hosts []string, filters []FilterFunc) *ReverseProxy {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("httpproxy: request: %s %s%s %s; upstream %s://%s", request.Method,
-			request.Host, request.RequestURI, request.Header, u.Scheme, u.Host)
 		request.URL.Scheme = u.Scheme
 		request.URL.Host = u.Host
 		request.Host = u.Host
