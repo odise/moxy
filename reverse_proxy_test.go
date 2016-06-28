@@ -57,7 +57,7 @@ func TestReverseProxy(t *testing.T) {
 	}
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters, false, "")
+	proxyHandler := NewReverseProxy(hosts, filters)
 	frontend := httptest.NewServer(proxyHandler)
 	defer frontend.Close()
 
@@ -115,7 +115,7 @@ func TestXForwardedFor(t *testing.T) {
 	}
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters, false, "")
+	proxyHandler := NewReverseProxy(hosts, filters)
 	frontend := httptest.NewServer(proxyHandler)
 	defer frontend.Close()
 
@@ -161,7 +161,7 @@ func TestReverseProxyQuery(t *testing.T) {
 		}
 		hosts := []string{backendURL.Host}
 		filters := []FilterFunc{}
-		proxyHandler := NewReverseProxy(hosts, filters, false, "")
+		proxyHandler := NewReverseProxy(hosts, filters)
 		frontend := httptest.NewServer(proxyHandler)
 		req, _ := http.NewRequest("GET", frontend.URL+tt.reqSuffix, nil)
 		req.Close = true
@@ -191,7 +191,7 @@ func TestReverseProxyFlushInterval(t *testing.T) {
 
 	hosts := []string{backendURL.Host}
 	filters := []FilterFunc{}
-	proxyHandler := NewReverseProxy(hosts, filters, false, "")
+	proxyHandler := NewReverseProxy(hosts, filters)
 	proxyHandler.FlushInterval = time.Microsecond
 
 	done := make(chan bool)

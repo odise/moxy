@@ -124,15 +124,18 @@ func (p *ReverseProxy) MoxyServeHTTP(rw http.ResponseWriter, req *http.Request) 
 	}
 
 	// set Host header to point to the proxy target
-	if p.OverwriteHost {
-		host := outreq.URL.Host
-		if p.Hostname != "" {
-			host = p.Hostname
-		}
-		log.Printf("httpproxy: overwriting Host header %s with %s", outreq.Host, host)
-		outreq.Host = host
-	}
 
+	/*
+		if p.OverwriteHost {
+			host := outreq.URL.Host
+			if p.Hostname != "" {
+				host = p.Hostname
+			}
+			log.Printf("httpproxy: overwriting Host header %s with %s", outreq.Host, host)
+			log.Printf("httpproxy:  %s  %s", req.Host, outreq.Host)
+			//outreq.Host = host
+		}
+	*/
 	res, err := transport.RoundTrip(outreq)
 	if err != nil {
 		log.Printf("httpproxy: proxy error: %v", err)
